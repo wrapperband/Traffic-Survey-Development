@@ -12,15 +12,20 @@ if __name__ == '__main__':
     def carUp():
         pass
     carUp.day = 0
-    carUp.startTime = 0
+    carUp.StartTime = 0
+    carUp.prevTime = 0
     
     def carDn():
         pass
     carDn.day = 0
-    carDn.startTime = 0
+    carDn.StartTime = 0
+    carDn.prevTime = 0
     
 
     # =========================  Functions to create output records  ======================
+    def timeDiff( t2, t1):
+        return (ms_in_day + t2 - t1) % ms_in_day;
+    
     def nextId():
         nextId.counter += 1
         return nextId.counter
@@ -28,13 +33,14 @@ if __name__ == '__main__':
     
     f = open('test-results.csv','w')
     
-    def CreateRecord( direction, day, starttime, endtime ):
+    def CreateRecord( direction, day, starttime, endtime, prevTime ):
         ID = nextId()
         if ID == 1: 
-            print >>f, "ID,Direction,Day,Time,Duration,Speed"
-        duration = 1.0 * (ms_in_day + endtime - starttime) % ms_in_day
+            print >>f, "ID,Direction,Day,Time,Duration,Speed,Separation"
+        duration = 1.0 * timeDiff(endtime, starttime)
         speed =  2.5/1000/(duration/3600000)
-        print >>f, "%5d,%3s,%4d,%9d,%5d,%5.1f" % (ID, direction, day, starttime, duration, speed)
+        separation = timeDiff( starttime, prevTime)/1000.0
+        print >>f, "%5d,%3s,%4d,%9d,%5d,%5.1f,%6.1f" % (ID, direction, day, starttime, duration, speed, separation)
 
     # =========================  functions to implement Finite State Machine
     def IDLE(source, timestamp, DeltaT, NewState):
@@ -50,15 +56,14 @@ if __name__ == '__main__':
             elif DeltaT < DT2:
                 carUp.StartTime = timestamp; carUp.day = Day; NewState = OL2_1
             elif DeltaT < DT3:
-                CreateRecord("DN", carDn.day, carDn.StartTime, timestamp)
-                NewState = IDLE
+                CreateRecord("DN", carDn.day, carDn.StartTime, timestamp, carDn.prevTime); carDn.prevTime = carDn.StartTime; NewState = IDLE
         elif source == "B" and DeltaT < DT1:
             carUp.StartTime = timestamp; carUp.day = Day; NewState = UP_1
         return NewState
 
     def DOWN_2(source, timestamp, DeltaT, NewState):
         if source == "A":
-            CreateRecord("DN", carDn.day, carDn.StartTime, timestamp); NewState = IDLE
+            CreateRecord("DN", carDn.day, carDn.StartTime, timestamp, carDn.prevTime); carDn.prevTime = carDn.StartTime; NewState = IDLE
         return NewState
 
     def UP_1(source, timestamp, DeltaT, NewState):
@@ -73,7 +78,7 @@ if __name__ == '__main__':
 
     def UP_2(source, timestamp, DeltaT, NewState):
         if source == "B" and DeltaT < DT1:
-            CreateRecord("UP", carUp.day, carUp.StartTime, timestamp); NewState = IDLE
+            CreateRecord("UP", carUp.day, carUp.StartTime, timestamp, carUp.prevTime); carUp.prevTime = carUp.StartTime; NewState = IDLE
         return NewState
 
     def OL1_1(source, timestamp, DeltaT, NewState):
@@ -83,7 +88,7 @@ if __name__ == '__main__':
 
     def OL1_2(source, timestamp, DeltaT, NewState):
         if source == "B" and DeltaT < DT1:
-            CreateRecord("UP", carUp.day, carUp.StartTime, timestamp); NewState = DOWN_2
+            CreateRecord("UP", carUp.day, carUp.StartTime, timestamp, carUp.prevTime); carUp.prevTime = carUp.StartTime; NewState = DOWN_2
         return NewState
 
     def OL2_1(source, timestamp, DeltaT, NewState):
@@ -94,7 +99,7 @@ if __name__ == '__main__':
     def OL2_2(source, timestamp, DeltaT, NewState):
         if source == "A" and DeltaT < DT1:
             if DeltaT < DT2:
-                CreateRecord("DN", carDn.day, carDn.StartTime, timestamp); NewState = OL2_3A
+                CreateRecord("DN", carDn.day, carDn.StartTime, timestamp, carDn.prevTime); carDn.prevTime = carDn.StartTime; NewState = OL2_3A
             elif DeltaT < DT3:
                 NewState = OL2_3B
         return NewState
@@ -106,14 +111,14 @@ if __name__ == '__main__':
 
     def OL2_3B(source, timestamp, DeltaT, NewState):
         if source == "A" and DeltaT < DT1:
-            CreateRecord("DN", carDn.day, carDn.StartTime, timestamp); NewState = UP_2
+            CreateRecord("DN", carDn.day, carDn.StartTime, timestamp, carDn.prevTime); carDn.prevTime = carDn.StartTime; NewState = UP_2
         elif source == "B" and DeltaT < DT1:
-            CreateRecord("UP", carUp.day, carUp.StartTime, timestamp); NewState = OL2_5
+            CreateRecord("UP", carUp.day, carUp.StartTime, timestamp, carUp.prevTime); carUp.prevTime = carUp.StartTime; NewState = OL2_5
         return NewState
                 
     def OL2_5(source, timestamp, DeltaT, NewState):
         if source == "A" and DeltaT < DT1:
-            CreateRecord("DN", carDn.day, carDn.StartTime, timestamp); NewState = IDLE
+            CreateRecord("DN", carDn.day, carDn.StartTime, timestamp, carDn.prevTime); carDn.prevTime = carDn.StartTime; carDn.prevTime = carDn.StartTime; NewState = IDLE
         return NewState
 
     def CC_1(source, timestamp, DeltaT, NewState):
@@ -128,9 +133,9 @@ if __name__ == '__main__':
 
     def CC_3(source, timestamp, DeltaT, NewState):
         if source == "A":
-            CreateRecord("DN", carDn.day, carDn.StartTime, timestamp); NewState = UP_2
+            CreateRecord("DN", carDn.day, carDn.StartTime, timestamp, carDn.prevTime); carDn.prevTime = carDn.StartTime; NewState = UP_2
         elif source == "B" and DeltaT < DT1:
-            CreateRecord("UP", carUp.day, carUp.StartTime, timestamp); NewState = DOWN_2
+            CreateRecord("UP", carUp.day, carUp.StartTime, timestamp, carUp.prevTime); carUp.prevTime = carUp.StartTime; NewState = DOWN_2
         return NewState
                 
     def ERROR():
